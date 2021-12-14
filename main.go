@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/mkideal/cli"
 )
 
-var version = "v0.0.1"
+var version = "v0.0.2"
 var graphDataGitHubUrl = "https://api.github.com/repos/openshift/cincinnati-graph-data/contents/channels"
 
 // ReturnIndex renders the index template
@@ -98,14 +99,30 @@ func getEnv(varName, defaultValue string) string {
 	return defaultValue
 }
 
+// Building the cli structure and passing the default arguments
+type argT struct {
+	cli.Helper
+	Version bool   `cli:"!v"      usage:"Version"`
+	Port    string `cli:"!port"   usage:"Default port of communication" dft:"8080"`
+	IPaddr  string `cli:"!ipaddr" usage:"Default IPaddr" dft:"127.0.0.1"`
+}
+
 func main() {
-	port := getEnv("APP_PORT", "8080")
-	ip := getEnv("IP", "127.0.0.1")
-	log.Println("Starting OpenShift Update Graph", version)
-	log.Println("Listening on", ip+":"+port)
-	router := mux.NewRouter()
-	router.HandleFunc("/", ReturnIndex).Methods("GET")
-	router.HandleFunc("/channels", ReturnOpenShiftChannels).Methods("GET")
-	router.HandleFunc("/cincinnati/{channel}/{api}", ReturnCincinnatiOutput).Methods("GET")
-	log.Fatal(http.ListenAndServe(ip+":"+port, router))
+	os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+		argv := ctx.Argv().(*argT)
+		if argv.Version {
+			ctx.String("%s\n", version)
+		} else {
+			port := getEnv("%s", argv.Port)
+			ip := getEnv("%s", argv.IPaddr)
+			log.Println("Starting OpenShift Update Graph", version)
+			log.Println("Listening on", ip+":"+port)
+			router := mux.NewRouter()
+			router.HandleFunc("/", ReturnIndex).Methods("GET")
+			router.HandleFunc("/channels", ReturnOpenShiftChannels).Methods("GET")
+			router.HandleFunc("/cincinnati/{channel}/{api}", ReturnCincinnatiOutput).Methods("GET")
+			log.Fatal(http.ListenAndServe(ip+":"+port, router))
+		}
+		return nil
+	}))
 }
